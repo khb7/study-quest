@@ -1,63 +1,34 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-
-type TimerState = 'idle' | 'studying' | 'paused';
-
-interface UseStudyTimerReturn {
-  timerState: TimerState;
-  elapsedSeconds: number;
-  formattedTime: string;
-  progress: number;
-  startTimer: () => void;
-  pauseTimer: () => void;
-  stopTimer: () => void;
-  resetTimer: () => void;
-}
+import { useState, useEffect } from 'react';
+import { useStudyStore } from '@/store/useStudyStore';
 
 const CYCLE_SECONDS = 25 * 60;
 
-export function useStudyTimer(): UseStudyTimerReturn {
-  const [timerState, setTimerState] = useState<TimerState>('idle');
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+export function useStudyTimer() {
+  const timerState = useStudyStore((s) => s.timerState);
+  const startedAt = useStudyStore((s) => s.startedAt);
+  const accumulatedSeconds = useStudyStore((s) => s.accumulatedSeconds);
+  const startTimer = useStudyStore((s) => s.startTimer);
+  const pauseTimer = useStudyStore((s) => s.pauseTimer);
+  const stopTimer = useStudyStore((s) => s.stopTimer);
+  const resetTimer = useStudyStore((s) => s.resetTimer);
 
-  const clearTimerInterval = useCallback(() => {
-    if (intervalRef.current !== null) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, []);
+  // Tick state just to force re-renders every second while studying
+  const [, setTick] = useState(0);
 
   useEffect(() => {
-    return () => clearTimerInterval();
-  }, [clearTimerInterval]);
+    if (timerState !== 'studying') return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [timerState]);
 
-  const startTimer = useCallback(() => {
-    setTimerState('studying');
-    intervalRef.current = setInterval(() => {
-      setElapsedSeconds((prev) => prev + 1);
-    }, 1000);
-  }, []);
-
-  const pauseTimer = useCallback(() => {
-    setTimerState('paused');
-    clearTimerInterval();
-  }, [clearTimerInterval]);
-
-  const stopTimer = useCallback(() => {
-    clearTimerInterval();
-    // State stays as-is; caller triggers modal then calls resetTimer
-  }, [clearTimerInterval]);
-
-  const resetTimer = useCallback(() => {
-    setTimerState('idle');
-    setElapsedSeconds(0);
-    clearTimerInterval();
-  }, [clearTimerInterval]);
+  const elapsedSeconds =
+    timerState === 'studying' && startedAt !== null
+      ? Math.floor((Date.now() - startedAt) / 1000)
+      : accumulatedSeconds;
 
   const minutes = Math.floor(elapsedSeconds / 60);
   const seconds = elapsedSeconds % 60;
   const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-
   const progress = CYCLE_SECONDS > 0 ? (elapsedSeconds % CYCLE_SECONDS) / CYCLE_SECONDS : 0;
 
   return {

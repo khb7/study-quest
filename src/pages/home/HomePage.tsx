@@ -124,6 +124,12 @@ const HomePage: React.FC = () => {
       }}
     >
       {/* Ambient background glow */}
+      <style>{`
+        @keyframes ambientPulse {
+          0%, 100% { opacity: 1;    transform: translate(-50%, -50%) scale(1);    }
+          50%       { opacity: 1.6; transform: translate(-50%, -50%) scale(1.18); }
+        }
+      `}</style>
       <div
         style={{
           position: 'absolute',
@@ -135,6 +141,7 @@ const HomePage: React.FC = () => {
           borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(201,168,76,0.07) 0%, transparent 70%)',
           pointerEvents: 'none',
+          animation: isStudying ? 'ambientPulse 2.5s ease-in-out infinite' : undefined,
         }}
       />
 

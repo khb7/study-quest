@@ -38,7 +38,7 @@ const CollectionScreen: React.FC = () => {
       style={{
         backgroundColor: '#0F0F1A',
         minHeight: 'calc(100dvh - 100px)',
-        paddingBottom: 'calc(24px + env(safe-area-inset-bottom))',
+        paddingBottom: 'calc(90px + env(safe-area-inset-bottom))',
       }}
     >
       {/* Header */}
@@ -172,12 +172,28 @@ const CollectionScreen: React.FC = () => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: isOwned ? 26 : 20,
+                  fontSize: 26,
                   marginTop: 4,
                   border: isOwned ? `1px solid ${colors.border}30` : 'none',
+                  position: 'relative',
                 }}
               >
-                {isOwned ? icon : '🔒'}
+                <span style={isOwned ? undefined : { filter: 'brightness(0) invert(1) opacity(0.35)' }}>
+                  {icon}
+                </span>
+                {!isOwned && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      right: 0,
+                      fontSize: 14,
+                      lineHeight: 1,
+                    }}
+                  >
+                    🔒
+                  </span>
+                )}
               </div>
 
               {/* Name */}

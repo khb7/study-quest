@@ -96,7 +96,7 @@ const GachaScreen: React.FC<GachaScreenProps> = ({ onViewCollection }) => {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '32px 20px calc(24px + env(safe-area-inset-bottom))',
+        padding: '32px 20px calc(90px + env(safe-area-inset-bottom))',
         position: 'relative',
         gap: 28,
       }}
