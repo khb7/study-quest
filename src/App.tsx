@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AuthScreen from './components/AuthScreen';
 import BottomTabBar, { type Tab } from './components/BottomTabBar';
 import PlaceholderPage from './components/PlaceholderPage';
@@ -6,6 +6,9 @@ import HomePage from './pages/home/HomePage';
 import PokedexPage from './pages/pokedex/PokedexPage';
 import PartyPage from './pages/party/PartyPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
+import AttendanceModal from './components/AttendanceModal';
+import { useUserStore } from './store/useUserStore';
+import { useStudyStore } from './store/useStudyStore';
 
 const tabLabels: Record<Tab, string> = {
   home: '홈',
@@ -17,9 +20,24 @@ const tabLabels: Record<Tab, string> = {
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [showAttendance, setShowAttendance] = useState(false);
+  const lastAttendanceDate = useUserStore((s) => s.lastAttendanceDate);
+  const checkDayReset = useStudyStore((s) => s.checkDayReset);
+
+  useEffect(() => {
+    checkDayReset();
+  }, []);
+
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+    const today = new Date().toISOString().slice(0, 10);
+    if (lastAttendanceDate !== today) {
+      setShowAttendance(true);
+    }
+  };
 
   if (!isAuthenticated) {
-    return <AuthScreen onLogin={() => setIsAuthenticated(true)} />;
+    return <AuthScreen onLogin={handleLogin} />;
   }
 
   return (
@@ -40,6 +58,7 @@ const App: React.FC = () => {
         )}
       </div>
       <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+      {showAttendance && <AttendanceModal onClose={() => setShowAttendance(false)} />}
     </div>
   );
 };
