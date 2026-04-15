@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { User, Stats } from '@/types';
 
 export interface Party {
@@ -46,6 +47,11 @@ const MOCK_GUILDS: Guild[] = [
   { id: 'g4', name: '입문자의 전당', description: '처음 시작하는 분 환영해요', memberCount: 8, maxMembers: 30, weeklyMinutes: 3100, level: 2, isJoined: false },
 ];
 
+export interface AttendanceReward {
+  gold: number;
+  gems: number;
+}
+
 interface UserState {
   user: User;
   ownedCharacterIds: string[];
@@ -53,6 +59,7 @@ interface UserState {
   currentPartyId: string | null;
   guilds: Guild[];
   currentGuildId: string | null;
+  lastAttendanceDate: string | null;  // 'YYYY-MM-DD'
   updateStats: (stats: Partial<Stats>) => void;
   updateProfileImage: (imageUrl: string | null) => void;
   addStats: (delta: Partial<Stats>) => void;
@@ -65,14 +72,18 @@ interface UserState {
   joinGuild: (id: string) => void;
   leaveGuild: () => void;
   createGuild: (g: Omit<Guild, 'id' | 'isJoined'>) => void;
+  claimAttendance: () => AttendanceReward;
 }
 
-export const useUserStore = create<UserState>((set) => ({
+export const useUserStore = create<UserState>()(
+  persist(
+    (set) => ({
   ownedCharacterIds: [],
   parties: MOCK_PARTIES,
   currentPartyId: null,
   guilds: MOCK_GUILDS,
   currentGuildId: null,
+  lastAttendanceDate: null,
   user: {
     id: 'user-001',
     nickname: '탐험가',
@@ -179,4 +190,20 @@ export const useUserStore = create<UserState>((set) => ({
         currentGuildId: newGuild.id,
       };
     }),
-}));
+  claimAttendance: () => {
+    const reward: AttendanceReward = { gold: 100, gems: 1 };
+    const today = new Date().toISOString().slice(0, 10);
+    set((state) => ({
+      lastAttendanceDate: today,
+      user: {
+        ...state.user,
+        gold: state.user.gold + reward.gold,
+        gems: state.user.gems + reward.gems,
+      },
+    }));
+    return reward;
+  },
+    }),
+    { name: 'user-store' }
+  )
+);
