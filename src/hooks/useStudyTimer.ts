@@ -1,9 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useStudyStore } from '@/store/useStudyStore';
 
-const CYCLE_SECONDS = 25 * 60;
+const NORMAL_CYCLE_SECONDS = 25 * 60;
 
-export function useStudyTimer() {
+export interface PomodoroConfig {
+  phase: 'study' | 'break';
+  round: number; // 1-based, 1–4
+}
+
+export function getPomodoroPhaseSeconds(config: PomodoroConfig): number {
+  if (config.phase === 'study') return 25 * 60;
+  return config.round >= 4 ? 15 * 60 : 5 * 60;
+}
+
+export function useStudyTimer(pomodoro?: PomodoroConfig) {
   const timerState = useStudyStore((s) => s.timerState);
   const startedAt = useStudyStore((s) => s.startedAt);
   const accumulatedSeconds = useStudyStore((s) => s.accumulatedSeconds);
@@ -26,10 +36,25 @@ export function useStudyTimer() {
       ? Math.floor((Date.now() - startedAt) / 1000)
       : accumulatedSeconds;
 
-  const minutes = Math.floor(elapsedSeconds / 60);
-  const seconds = elapsedSeconds % 60;
-  const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  const progress = CYCLE_SECONDS > 0 ? (elapsedSeconds % CYCLE_SECONDS) / CYCLE_SECONDS : 0;
+  let formattedTime: string;
+  let progress: number;
+
+  if (pomodoro) {
+    const totalSeconds = getPomodoroPhaseSeconds(pomodoro);
+    const remaining = Math.max(0, totalSeconds - elapsedSeconds);
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    formattedTime = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    // 1 = full (phase just started), 0 = empty (phase done)
+    progress = Math.max(0, (totalSeconds - elapsedSeconds) / totalSeconds);
+  } else {
+    const minutes = Math.floor(elapsedSeconds / 60);
+    const seconds = elapsedSeconds % 60;
+    formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    progress = NORMAL_CYCLE_SECONDS > 0
+      ? (elapsedSeconds % NORMAL_CYCLE_SECONDS) / NORMAL_CYCLE_SECONDS
+      : 0;
+  }
 
   return {
     timerState,

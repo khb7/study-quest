@@ -33,8 +33,11 @@ function Toast({ msg }: { msg: string }) {
   );
 }
 
+type View = 'list' | 'detail';
+
 const PartySubScreen: React.FC = () => {
   const { parties, currentPartyId, user, joinParty, leaveParty, createParty } = useUserStore();
+  const [view, setView] = useState<View>('list');
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -54,15 +57,18 @@ const PartySubScreen: React.FC = () => {
   const currentParty = currentPartyId ? parties.find((p) => p.id === currentPartyId) : null;
 
   const handleJoin = (id: string) => {
+    if (currentPartyId) { showToast('먼저 현재 파티에서 탈퇴하세요'); return; }
     const p = parties.find((x) => x.id === id)!;
     if (p.memberCount >= p.maxMembers) { showToast('파티가 가득 찼어요'); return; }
     joinParty(id);
+    setView('detail');
     showToast('파티에 가입했어요! 🎉');
   };
 
   const handleLeave = () => {
     leaveParty();
     setConfirmLeave(false);
+    setView('list');
     showToast('파티를 탈퇴했어요');
   };
 
@@ -71,6 +77,7 @@ const PartySubScreen: React.FC = () => {
     createParty({ name: cName.trim(), description: cDesc.trim(), maxMembers: cMax, weeklyMinutes: 0, tags: cTags });
     setShowModal(false);
     setCName(''); setCDesc(''); setCMax(4); setCTags([]);
+    setView('detail');
     showToast('파티가 생성되었어요! ⚔️');
   };
 
@@ -79,8 +86,8 @@ const PartySubScreen: React.FC = () => {
     else if (cTags.length < 3) setCTags([...cTags, tag]);
   };
 
-  // ─── My Party Screen ──────────────────────────────────────────────────────
-  if (currentParty) {
+  // ─── My Party Detail Screen ───────────────────────────────────────────────
+  if (view === 'detail' && currentParty) {
     const members = [...MOCK_MEMBERS].sort((a, b) => b.weeklyMinutes - a.weeklyMinutes);
 
     return (
@@ -92,7 +99,7 @@ const PartySubScreen: React.FC = () => {
           borderBottom: '1px solid rgba(255,255,255,0.06)',
         }}>
           <button
-            onClick={() => setConfirmLeave(true)}
+            onClick={() => setView('list')}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: 'rgba(255,255,255,0.6)', fontSize: 22, lineHeight: 1,
@@ -217,17 +224,42 @@ const PartySubScreen: React.FC = () => {
       {/* Top bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <span style={{ color: '#fff', fontSize: 20, fontWeight: 700 }}>파티 찾기</span>
-        <button
-          onClick={() => setShowModal(true)}
+        {!currentPartyId && (
+          <button
+            onClick={() => setShowModal(true)}
+            style={{
+              background: 'transparent', border: '1px solid #C9A84C',
+              borderRadius: 20, padding: '6px 14px', color: '#C9A84C',
+              fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            + 파티 만들기
+          </button>
+        )}
+      </div>
+
+      {/* My party banner */}
+      {currentParty && (
+        <div
+          onClick={() => setView('detail')}
           style={{
-            background: 'transparent', border: '1px solid #C9A84C',
-            borderRadius: 20, padding: '6px 14px', color: '#C9A84C',
-            fontSize: 13, cursor: 'pointer',
+            background: 'linear-gradient(135deg, #1A1A2E, #2D1B4E)',
+            border: '1px solid rgba(124,58,237,0.4)',
+            borderRadius: 16, padding: '14px 16px', marginBottom: 16, cursor: 'pointer',
           }}
         >
-          + 파티 만들기
-        </button>
-      </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginBottom: 4 }}>내 파티</div>
+              <div style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>{currentParty.name}</div>
+              <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>
+                {currentParty.memberCount}/{currentParty.maxMembers}명 · 이번주 {currentParty.weeklyMinutes}분
+              </div>
+            </div>
+            <span style={{ color: '#A78BFA', fontSize: 18 }}>›</span>
+          </div>
+        </div>
+      )}
 
       {/* Search bar */}
       <div style={{ position: 'relative', marginBottom: 16 }}>
@@ -252,10 +284,11 @@ const PartySubScreen: React.FC = () => {
       {/* Party list */}
       {filtered.map((party) => {
         const isFull = party.memberCount >= party.maxMembers;
+        const isMyParty = party.id === currentPartyId;
         return (
           <div key={party.id} style={{
             background: '#1A1A2E', borderRadius: 16,
-            border: '1px solid rgba(255,255,255,0.08)',
+            border: isMyParty ? '1px solid rgba(124,58,237,0.3)' : '1px solid rgba(255,255,255,0.08)',
             padding: 16, marginBottom: 10,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -291,19 +324,32 @@ const PartySubScreen: React.FC = () => {
               <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
                 📚 이번주 {party.weeklyMinutes}분 학습
               </span>
-              <button
-                onClick={() => handleJoin(party.id)}
-                disabled={isFull}
-                style={{
-                  width: 72, height: 32, borderRadius: 16, border: 'none',
-                  background: isFull ? 'rgba(255,255,255,0.06)' : '#C9A84C',
-                  color: isFull ? 'rgba(255,255,255,0.3)' : '#000',
-                  fontSize: 13, fontWeight: 700,
-                  cursor: isFull ? 'not-allowed' : 'pointer',
-                }}
-              >
-                가입하기
-              </button>
+              {isMyParty ? (
+                <button
+                  onClick={() => setView('detail')}
+                  style={{
+                    height: 32, borderRadius: 16, border: 'none',
+                    background: 'rgba(124,58,237,0.2)', color: '#A78BFA',
+                    fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: '0 14px',
+                  }}
+                >
+                  파티 보기
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleJoin(party.id)}
+                  disabled={isFull || !!currentPartyId}
+                  style={{
+                    width: 72, height: 32, borderRadius: 16, border: 'none',
+                    background: (isFull || currentPartyId) ? 'rgba(255,255,255,0.06)' : '#C9A84C',
+                    color: (isFull || currentPartyId) ? 'rgba(255,255,255,0.3)' : '#000',
+                    fontSize: 13, fontWeight: 700,
+                    cursor: (isFull || currentPartyId) ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  가입하기
+                </button>
+              )}
             </div>
           </div>
         );

@@ -27,12 +27,13 @@ const GRADE_LABELS: Record<GuildMember['grade'], string> = {
 };
 
 type GuildTab = 'home' | 'ranking' | 'rewards';
+type View = 'list' | 'detail';
 
 const WEEKLY_REWARDS = [
-  { id: 'r1', target: 100, label: '100분 달성', reward: '골드 50', icon: '🪙' },
-  { id: 'r2', target: 200, label: '200분 달성', reward: '골드 150', icon: '💰' },
-  { id: 'r3', target: 340, label: '340분 달성', reward: '젬 5', icon: '💎' },
-  { id: 'r4', target: 600, label: '600분 달성', reward: '특별 칭호', icon: '🏆' },
+  { id: 'r1', target: 100, label: '100분 달성', gold: 50, gems: 0, rewardText: '골드 50', icon: '🪙' },
+  { id: 'r2', target: 200, label: '200분 달성', gold: 150, gems: 0, rewardText: '골드 150', icon: '💰' },
+  { id: 'r3', target: 340, label: '340분 달성', gold: 0, gems: 5, rewardText: '젬 5', icon: '💎' },
+  { id: 'r4', target: 600, label: '600분 달성', gold: 200, gems: 10, rewardText: '골드 200 + 젬 10', icon: '🏆' },
 ];
 
 function Toast({ msg }: { msg: string }) {
@@ -51,7 +52,8 @@ function Toast({ msg }: { msg: string }) {
 }
 
 const GuildSubScreen: React.FC = () => {
-  const { guilds, currentGuildId, user, joinGuild, leaveGuild, createGuild } = useUserStore();
+  const { guilds, currentGuildId, user, joinGuild, leaveGuild, createGuild, updateCurrency } = useUserStore();
+  const [view, setView] = useState<View>('list');
   const [showModal, setShowModal] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [guildTab, setGuildTab] = useState<GuildTab>('home');
@@ -71,7 +73,9 @@ const GuildSubScreen: React.FC = () => {
   const currentGuild = currentGuildId ? guilds.find((g) => g.id === currentGuildId) : null;
 
   const handleJoin = (id: string) => {
+    if (currentGuildId) { showToast('먼저 현재 길드에서 탈퇴하세요'); return; }
     joinGuild(id);
+    setView('detail');
     showToast('길드에 가입했어요! 🏰');
   };
 
@@ -79,6 +83,7 @@ const GuildSubScreen: React.FC = () => {
     leaveGuild();
     setConfirmLeave(false);
     setGuildTab('home');
+    setView('list');
     showToast('길드를 탈퇴했어요');
   };
 
@@ -87,16 +92,22 @@ const GuildSubScreen: React.FC = () => {
     createGuild({ name: cName.trim(), description: cDesc.trim(), maxMembers: cMax, weeklyMinutes: 0, level: 1 });
     setShowModal(false);
     setCName(''); setCDesc(''); setCMax(20);
+    setView('detail');
     showToast('길드가 생성되었어요! 🏰');
   };
 
-  const handleClaimReward = (id: string) => {
-    setClaimedRewards((prev) => new Set([...prev, id]));
-    showToast('보상을 받았어요! 🎁');
+  const handleClaimReward = (rewardId: string) => {
+    const reward = WEEKLY_REWARDS.find((r) => r.id === rewardId);
+    if (!reward) return;
+    const newGold = reward.gold > 0 ? user.gold + reward.gold : undefined;
+    const newGems = reward.gems > 0 ? user.gems + reward.gems : undefined;
+    updateCurrency(newGold, newGems);
+    setClaimedRewards((prev) => new Set([...prev, rewardId]));
+    showToast(`보상 수령! ${reward.rewardText} 획득 🎁`);
   };
 
-  // ─── My Guild Screen ───────────────────────────────────────────────────────
-  if (currentGuild) {
+  // ─── My Guild Detail Screen ────────────────────────────────────────────────
+  if (view === 'detail' && currentGuild) {
     const userWeeklyMinutes = MOCK_GUILD_MEMBERS.find((m) => m.id === user.id)?.weeklyMinutes ?? 0;
     const sortedMembers = [...MOCK_GUILD_MEMBERS].sort((a, b) => b.weeklyMinutes - a.weeklyMinutes);
     const guildTotalMinutes = currentGuild.weeklyMinutes * 6;
@@ -106,7 +117,7 @@ const GuildSubScreen: React.FC = () => {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <button
-            onClick={() => setConfirmLeave(true)}
+            onClick={() => setView('list')}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', fontSize: 22, lineHeight: 1, padding: '0 12px 0 0' }}
           >
             ←
@@ -255,7 +266,6 @@ const GuildSubScreen: React.FC = () => {
               {sortedMembers.map((member, idx) => {
                 const isMe = member.id === user.id;
                 const [g1, g2] = AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length];
-                const rankColor = idx === 0 ? '#C9A84C' : idx === 1 ? '#94A3B8' : idx === 2 ? '#CD7C4A' : 'rgba(255,255,255,0.3)';
                 return (
                   <div key={member.id} style={{
                     display: 'flex', alignItems: 'center', padding: '14px 16px', gap: 12,
@@ -263,7 +273,8 @@ const GuildSubScreen: React.FC = () => {
                   }}>
                     <div style={{
                       width: 36, flexShrink: 0,
-                      color: rankColor, fontSize: idx < 3 ? 16 : 14, fontWeight: 700,
+                      color: idx === 0 ? '#C9A84C' : idx === 1 ? '#94A3B8' : idx === 2 ? '#CD7C4A' : 'rgba(255,255,255,0.3)',
+                      fontSize: idx < 3 ? 16 : 14, fontWeight: 700,
                     }}>
                       {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
                     </div>
@@ -326,7 +337,9 @@ const GuildSubScreen: React.FC = () => {
                 background: 'rgba(201,168,76,0.1)', borderRadius: 12,
                 padding: '8px 14px', textAlign: 'center',
               }}>
-                <div style={{ color: '#C9A84C', fontSize: 18, fontWeight: 700 }}>3</div>
+                <div style={{ color: '#C9A84C', fontSize: 18, fontWeight: 700 }}>
+                  {WEEKLY_REWARDS.filter((r) => userWeeklyMinutes >= r.target).length}
+                </div>
                 <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>달성 목표</div>
               </div>
             </div>
@@ -357,7 +370,7 @@ const GuildSubScreen: React.FC = () => {
                   <div style={{ flex: 1 }}>
                     <div style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>{reward.label}</div>
                     <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2 }}>
-                      보상: {reward.reward}
+                      보상: {reward.rewardText}
                     </div>
                   </div>
                   {claimed ? (
@@ -402,64 +415,114 @@ const GuildSubScreen: React.FC = () => {
       {/* Top bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <span style={{ color: '#fff', fontSize: 20, fontWeight: 700 }}>길드 찾기</span>
-        <button
-          onClick={() => setShowModal(true)}
-          style={{
-            background: 'transparent', border: '1px solid #C9A84C',
-            borderRadius: 20, padding: '6px 14px', color: '#C9A84C', fontSize: 13, cursor: 'pointer',
-          }}
-        >
-          + 길드 만들기
-        </button>
+        {!currentGuildId && (
+          <button
+            onClick={() => setShowModal(true)}
+            style={{
+              background: 'transparent', border: '1px solid #C9A84C',
+              borderRadius: 20, padding: '6px 14px', color: '#C9A84C', fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            + 길드 만들기
+          </button>
+        )}
       </div>
 
-      {/* Guild list */}
-      {guilds.map((guild) => (
-        <div key={guild.id} style={{
-          background: '#1A1A2E', borderRadius: 16,
-          border: '1px solid rgba(255,255,255,0.08)',
-          padding: 16, marginBottom: 10,
-        }}>
+      {/* My guild banner */}
+      {currentGuild && (
+        <div
+          onClick={() => setView('detail')}
+          style={{
+            background: 'linear-gradient(135deg, #1B1B3A, #2D1B69)',
+            border: '1px solid rgba(124,58,237,0.4)',
+            borderRadius: 16, padding: '14px 16px', marginBottom: 16, cursor: 'pointer',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>{guild.name}</span>
-            <span style={{
-              background: 'rgba(124,58,237,0.2)', color: '#A78BFA',
-              borderRadius: 20, padding: '3px 10px', fontSize: 12, fontWeight: 600,
-            }}>
-              Lv.{guild.level}
-            </span>
-          </div>
-
-          <div style={{
-            color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {guild.description}
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
-            <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
-              👥 {guild.memberCount}/{guild.maxMembers}명
-            </span>
-            <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
-              📚 주간 {guild.weeklyMinutes.toLocaleString()}분
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-            <button
-              onClick={() => handleJoin(guild.id)}
-              style={{
-                width: 72, height: 32, borderRadius: 16, border: 'none',
-                background: '#C9A84C', color: '#000',
-                fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              }}
-            >
-              가입하기
-            </button>
+            <div>
+              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginBottom: 4 }}>내 길드</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>{currentGuild.name}</span>
+                <span style={{
+                  background: 'rgba(124,58,237,0.2)', color: '#A78BFA',
+                  borderRadius: 20, padding: '2px 8px', fontSize: 11, fontWeight: 600,
+                }}>Lv.{currentGuild.level}</span>
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>
+                {currentGuild.memberCount}/{currentGuild.maxMembers}명 · 주간 {currentGuild.weeklyMinutes.toLocaleString()}분
+              </div>
+            </div>
+            <span style={{ color: '#A78BFA', fontSize: 18 }}>›</span>
           </div>
         </div>
-      ))}
+      )}
+
+      {/* Guild list */}
+      {guilds.map((guild) => {
+        const isMyGuild = guild.id === currentGuildId;
+        return (
+          <div key={guild.id} style={{
+            background: '#1A1A2E', borderRadius: 16,
+            border: isMyGuild ? '1px solid rgba(124,58,237,0.3)' : '1px solid rgba(255,255,255,0.08)',
+            padding: 16, marginBottom: 10,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>{guild.name}</span>
+              <span style={{
+                background: 'rgba(124,58,237,0.2)', color: '#A78BFA',
+                borderRadius: 20, padding: '3px 10px', fontSize: 12, fontWeight: 600,
+              }}>
+                Lv.{guild.level}
+              </span>
+            </div>
+
+            <div style={{
+              color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {guild.description}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                👥 {guild.memberCount}/{guild.maxMembers}명
+              </span>
+              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                📚 주간 {guild.weeklyMinutes.toLocaleString()}분
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+              {isMyGuild ? (
+                <button
+                  onClick={() => setView('detail')}
+                  style={{
+                    height: 32, borderRadius: 16, border: 'none',
+                    background: 'rgba(124,58,237,0.2)', color: '#A78BFA',
+                    fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: '0 14px',
+                  }}
+                >
+                  길드 보기
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleJoin(guild.id)}
+                  disabled={!!currentGuildId}
+                  style={{
+                    width: 72, height: 32, borderRadius: 16, border: 'none',
+                    background: currentGuildId ? 'rgba(255,255,255,0.06)' : '#C9A84C',
+                    color: currentGuildId ? 'rgba(255,255,255,0.3)' : '#000',
+                    fontSize: 13, fontWeight: 700,
+                    cursor: currentGuildId ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  가입하기
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
 
       {/* Create Guild Modal */}
       {showModal && (

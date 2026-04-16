@@ -2,18 +2,42 @@ interface TimerRingProps {
   progress: number;
   formattedTime: string;
   isStudying: boolean;
+  ringColor?: 'gold' | 'purple';
+  centerLabel?: string;
 }
 
 const RADIUS = 115;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-const TimerRing: React.FC<TimerRingProps> = ({ progress, formattedTime, isStudying }) => {
-  const offset = CIRCUMFERENCE * (1 - progress);
+const COLORS = {
+  gold: {
+    ring: '#C9A84C',
+    dot: '#E8CC7A',
+    glowFilter: 'url(#gold-glow)',
+  },
+  purple: {
+    ring: '#A78BFA',
+    dot: '#C4B5FD',
+    glowFilter: 'url(#purple-glow)',
+  },
+};
 
-  // 1. 끝점 좌표 계산 (12시 방향 = -90deg 기준, 시계방향)
+const TimerRing: React.FC<TimerRingProps> = ({
+  progress,
+  formattedTime,
+  isStudying,
+  ringColor = 'gold',
+  centerLabel,
+}) => {
+  const offset = CIRCUMFERENCE * (1 - progress);
+  const color = COLORS[ringColor];
+
+  // Dot position at the leading edge of the arc
   const angle = -Math.PI / 2 + progress * 2 * Math.PI;
   const dotX = 130 + RADIUS * Math.cos(angle);
   const dotY = 130 + RADIUS * Math.sin(angle);
+
+  const defaultLabel = isStudying ? '학습중...' : '집중하세요';
 
   return (
     <div style={{ position: 'relative', width: 260, height: 260 }}>
@@ -34,18 +58,19 @@ const TimerRing: React.FC<TimerRingProps> = ({ progress, formattedTime, isStudyi
 
       <svg width="260" height="260" viewBox="0 0 260 260" style={{ display: 'block' }}>
         <defs>
-          {/* 링 호흡 글로우 — 블러 강함 */}
           <filter id="ring-glow" x="-25%" y="-25%" width="150%" height="150%">
             <feGaussianBlur stdDeviation="9" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
-          {/* 끝점 글로우 */}
           <filter id="dot-glow" x="-100%" y="-100%" width="300%" height="300%">
             <feGaussianBlur stdDeviation="4" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
-          {/* 기존 링 글로우 */}
           <filter id="gold-glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+          <filter id="purple-glow" x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation="4" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
@@ -61,14 +86,14 @@ const TimerRing: React.FC<TimerRingProps> = ({ progress, formattedTime, isStudyi
           strokeWidth="10"
         />
 
-        {/* 3. 호흡 글로우 레이어 (progress arc 뒤에 겹쳐서 맥박 효과) */}
+        {/* Breathing glow layer */}
         {isStudying && (
           <circle
             cx="130"
             cy="130"
             r={RADIUS}
             fill="none"
-            stroke="#C9A84C"
+            stroke={color.ring}
             strokeWidth="12"
             strokeDasharray={CIRCUMFERENCE}
             strokeDashoffset={offset}
@@ -88,23 +113,23 @@ const TimerRing: React.FC<TimerRingProps> = ({ progress, formattedTime, isStudyi
           cy="130"
           r={RADIUS}
           fill="none"
-          stroke="#C9A84C"
+          stroke={color.ring}
           strokeWidth="10"
           strokeDasharray={CIRCUMFERENCE}
           strokeDashoffset={offset}
           strokeLinecap="round"
           transform="rotate(-90 130 130)"
-          filter={isStudying ? 'url(#gold-glow)' : undefined}
+          filter={isStudying ? color.glowFilter : undefined}
           style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}
         />
 
-        {/* 1. 끝점 빛나는 점 */}
+        {/* Leading dot */}
         {isStudying && progress > 0 && (
           <circle
             cx={dotX}
             cy={dotY}
             r={7}
-            fill="#E8CC7A"
+            fill={color.dot}
             filter="url(#dot-glow)"
             style={{
               animation: 'dotPulse 2.5s ease-in-out infinite',
@@ -141,7 +166,6 @@ const TimerRing: React.FC<TimerRingProps> = ({ progress, formattedTime, isStudyi
           {formattedTime}
         </span>
 
-        {/* 2. 학습중 텍스트 점멸 */}
         <span
           style={{
             fontSize: 12,
@@ -150,7 +174,7 @@ const TimerRing: React.FC<TimerRingProps> = ({ progress, formattedTime, isStudyi
             animation: isStudying ? 'textPulse 2.5s ease-in-out infinite' : undefined,
           }}
         >
-          {isStudying ? '학습중...' : '집중하세요'}
+          {centerLabel ?? defaultLabel}
         </span>
       </div>
     </div>
