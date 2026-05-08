@@ -7,10 +7,14 @@ import StudyModal from './components/StudyModal';
 import QuizScreen from './components/QuizScreen';
 import ResultScreen from './components/ResultScreen';
 import StatUpdateScreen from './components/StatUpdateScreen';
+import TodayStudyProgress from './components/TodayStudyProgress';
+import TimerModeToggle, { type TimerMode } from './components/TimerModeToggle';
+import PomodoroIndicator from './components/PomodoroIndicator';
+import PomodoroNoticeOverlay, { type PomodoroNotice } from './components/PomodoroNoticeOverlay';
+import TimerActionButtons from './components/TimerActionButtons';
 
 type HomeScreen = 'timer' | 'quiz' | 'result' | 'stat';
-type TimerMode = 'normal' | 'pomodoro';
-type PomodoroNotice = 'study-done' | 'break-done' | null;
+type HomeScreen = 'timer' | 'quiz' | 'result' | 'stat';
 
 const HomePage: React.FC = () => {
   const todayMinutes = useStudyStore((s) => s.todayMinutes);
@@ -231,83 +235,16 @@ const HomePage: React.FC = () => {
       />
 
       {/* Top: today's study time */}
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginBottom: 4, letterSpacing: '0.5px' }}>
-          오늘의 학습
-        </div>
-        <div style={{ fontSize: 14, color: '#C9A84C', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-          {todayFormatted}
-        </div>
-      </div>
+      <TodayStudyProgress formattedTime={todayFormatted} />
 
       {/* Mode toggle (only when idle and not in active session) */}
       {!isActive && !pomNotice && (
-        <div
-          style={{
-            display: 'flex',
-            backgroundColor: '#1A1A2E',
-            borderRadius: 24,
-            padding: 4,
-            marginBottom: 32,
-            border: '1px solid rgba(255,255,255,0.08)',
-          }}
-        >
-          {(['normal', 'pomodoro'] as const).map((mode) => {
-            const active = timerMode === mode;
-            return (
-              <button
-                key={mode}
-                onClick={() => switchMode(mode)}
-                style={{
-                  height: 36,
-                  padding: '0 20px',
-                  borderRadius: 20,
-                  border: 'none',
-                  backgroundColor: active ? '#C9A84C' : 'transparent',
-                  color: active ? '#0F0F1A' : 'rgba(255,255,255,0.45)',
-                  fontSize: 13,
-                  fontWeight: active ? 700 : 500,
-                  cursor: 'pointer',
-                  transition: 'all 200ms ease',
-                  letterSpacing: '-0.2px',
-                }}
-              >
-                {mode === 'normal' ? '일반' : '🍅 포모도로'}
-              </button>
-            );
-          })}
-        </div>
+        <TimerModeToggle timerMode={timerMode} onSwitchMode={switchMode} />
       )}
 
       {/* Pomodoro round indicator (when active) */}
       {isPomodoro && isActive && !pomNotice && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            marginBottom: 24,
-            backgroundColor: '#1A1A2E',
-            borderRadius: 20,
-            padding: '8px 16px',
-            border: '1px solid rgba(255,255,255,0.08)',
-          }}
-        >
-          <span style={{ fontSize: 14 }}>{isBreak ? '☕' : '🍅'}</span>
-          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>
-            {pomRound} / 4 라운드
-          </span>
-          <span
-            style={{
-              fontSize: 12,
-              color: isBreak ? '#A78BFA' : '#C9A84C',
-              fontWeight: 600,
-              marginLeft: 4,
-            }}
-          >
-            {isBreak ? '휴식중' : '공부중'}
-          </span>
-        </div>
+        <PomodoroIndicator pomRound={pomRound} isBreak={isBreak} />
       )}
 
       {/* No-round-indicator spacer for normal mode */}
@@ -326,205 +263,25 @@ const HomePage: React.FC = () => {
         />
 
         {/* Pomodoro phase notice overlay */}
-        {pomNotice && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              backgroundColor: '#1A1A2E',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 20,
-              padding: '28px 28px 24px',
-              textAlign: 'center',
-              zIndex: 10,
-              minWidth: 270,
-              boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
-            }}
-          >
-            <div style={{ fontSize: 36, marginBottom: 10 }}>
-              {pomNotice === 'study-done' ? '🍅' : '☕'}
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: '#FFFFFF', marginBottom: 6 }}>
-              {pomNotice === 'study-done'
-                ? `${pomRound}라운드 완료!`
-                : '휴식 완료!'}
-            </div>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 22 }}>
-              {pomNotice === 'study-done'
-                ? pomRound >= 4
-                  ? '15분 긴 휴식을 취하세요'
-                  : '5분 휴식을 취하세요'
-                : pomRound < 4
-                  ? '다음 라운드를 시작하세요'
-                  : '4라운드 모두 완료했어요!'}
-            </div>
-
-            {pomNotice === 'study-done' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <button
-                  onClick={handlePomodoroBreakStart}
-                  style={{
-                    height: 44,
-                    backgroundColor: '#A78BFA',
-                    border: 'none',
-                    borderRadius: 12,
-                    color: '#FFFFFF',
-                    fontSize: 14,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {pomRound >= 4 ? '15분 휴식하기' : '5분 휴식하기'}
-                </button>
-                <button
-                  onClick={handlePomodoroComplete}
-                  style={{
-                    height: 40,
-                    backgroundColor: 'transparent',
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    borderRadius: 12,
-                    color: 'rgba(255,255,255,0.5)',
-                    fontSize: 13,
-                    cursor: 'pointer',
-                  }}
-                >
-                  오늘 학습 완료
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {pomRound < 4 && (
-                  <button
-                    onClick={handlePomodoroNextRound}
-                    style={{
-                      height: 44,
-                      backgroundColor: '#C9A84C',
-                      border: 'none',
-                      borderRadius: 12,
-                      color: '#0F0F1A',
-                      fontSize: 14,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    다음 라운드 시작
-                  </button>
-                )}
-                <button
-                  onClick={handlePomodoroComplete}
-                  style={{
-                    height: pomRound >= 4 ? 44 : 40,
-                    backgroundColor: pomRound >= 4 ? '#C9A84C' : 'transparent',
-                    border: pomRound >= 4 ? 'none' : '1px solid rgba(255,255,255,0.15)',
-                    borderRadius: 12,
-                    color: pomRound >= 4 ? '#0F0F1A' : 'rgba(255,255,255,0.5)',
-                    fontSize: pomRound >= 4 ? 14 : 13,
-                    fontWeight: pomRound >= 4 ? 700 : 400,
-                    cursor: 'pointer',
-                  }}
-                >
-                  학습 완료
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        <PomodoroNoticeOverlay
+          pomNotice={pomNotice}
+          pomRound={pomRound}
+          onBreakStart={handlePomodoroBreakStart}
+          onNextRound={handlePomodoroNextRound}
+          onComplete={handlePomodoroComplete}
+        />
       </div>
 
       {/* Buttons */}
       {!pomNotice && (
-        <div
-          style={{
-            display: 'flex',
-            gap: 12,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginTop: 56,
-          }}
-        >
-          {!isActive ? (
-            <button
-              onClick={startTimer}
-              style={{
-                width: 200,
-                height: 56,
-                backgroundColor: isBreak ? '#A78BFA' : '#C9A84C',
-                border: 'none',
-                borderRadius: 28,
-                color: isBreak ? '#FFFFFF' : '#0F0F1A',
-                fontSize: 18,
-                fontWeight: 700,
-                cursor: 'pointer',
-                boxShadow: isBreak
-                  ? '0 0 24px rgba(167,139,250,0.4)'
-                  : '0 0 24px rgba(201,168,76,0.4)',
-                transition: 'transform 150ms ease, box-shadow 150ms ease',
-                letterSpacing: '-0.3px',
-              }}
-              onMouseDown={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.96)';
-              }}
-              onMouseUp={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
-              }}
-            >
-              {isBreak ? '휴식 시작' : '시작하기'}
-            </button>
-          ) : (
-            <>
-              <button
-                onClick={isStudying ? pauseTimer : startTimer}
-                style={{
-                  width: 140,
-                  height: 56,
-                  backgroundColor: 'transparent',
-                  border: `1.5px solid ${isBreak ? '#A78BFA' : '#C9A84C'}`,
-                  borderRadius: 28,
-                  color: isBreak ? '#A78BFA' : '#C9A84C',
-                  fontSize: 16,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'background-color 150ms ease, transform 150ms ease',
-                }}
-                onMouseDown={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.97)';
-                }}
-                onMouseUp={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
-                }}
-              >
-                {isStudying ? '일시정지' : '재개'}
-              </button>
-
-              <button
-                onClick={handleStop}
-                style={{
-                  width: 140,
-                  height: 56,
-                  backgroundColor: '#C9A84C',
-                  border: 'none',
-                  borderRadius: 28,
-                  color: '#0F0F1A',
-                  fontSize: 16,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  boxShadow: '0 0 20px rgba(201,168,76,0.35)',
-                  transition: 'transform 150ms ease, box-shadow 150ms ease',
-                }}
-                onMouseDown={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.96)';
-                }}
-                onMouseUp={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
-                }}
-              >
-                완료
-              </button>
-            </>
-          )}
-        </div>
+        <TimerActionButtons
+          isActive={isActive}
+          isStudying={isStudying}
+          isBreak={isBreak}
+          onStart={startTimer}
+          onPause={pauseTimer}
+          onStop={handleStop}
+        />
       )}
 
       {/* Study modal */}
