@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import AuthScreen from './components/AuthScreen';
-import BottomTabBar, { type Tab } from './components/BottomTabBar';
+import BottomTabBar from './components/BottomTabBar';
 import PlaceholderPage from './components/PlaceholderPage';
 import HomePage from './pages/home/HomePage';
 import PokedexPage from './pages/pokedex/PokedexPage';
@@ -19,7 +20,6 @@ const tabLabels: Record<Tab, string> = {
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>('home');
   const [showAttendance, setShowAttendance] = useState(false);
   const lastAttendanceDate = useUserStore((s) => s.lastAttendanceDate);
   const checkDayReset = useStudyStore((s) => s.checkDayReset);
@@ -43,21 +43,20 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-[430px] mx-auto">
-        {activeTab === 'home' ? (
-          <HomePage />
-        ) : activeTab === 'pokedex' ? (
-          <PokedexPage />
-        ) : activeTab === 'party' ? (
-          <PartyPage />
-        ) : activeTab === 'dashboard' ? (
-          <DashboardPage onLogout={() => setIsAuthenticated(false)} />
-        ) : (
-          <div className="pb-20 pt-4">
-            <PlaceholderPage title={tabLabels[activeTab]} />
-          </div>
-        )}
+        <Routes>
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/home" element={<HomePage />} />
+          <Route path="/pokedex" element={<PokedexPage />} />
+          <Route path="/party" element={<PartyPage />} />
+          <Route path="/dashboard" element={<DashboardPage onLogout={() => setIsAuthenticated(false)} />} />
+          <Route path="*" element={
+            <div className="pb-20 pt-4">
+              <PlaceholderPage title="페이지를 찾을 수 없습니다" />
+            </div>
+          } />
+        </Routes>
       </div>
-      <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+      <BottomTabBar />
       {showAttendance && <AttendanceModal onClose={() => setShowAttendance(false)} />}
     </div>
   );
